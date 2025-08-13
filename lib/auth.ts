@@ -1,18 +1,22 @@
-// lib/auth.ts - Client-side authentication utilities
 'use client';
 
+// This function now correctly checks for the 'token' cookie.
 export function isAuthenticated(): boolean {
   if (typeof window === 'undefined') return false;
   
-  // Check for auth cookie
+  // Check for the 'token' cookie set by your JWT login process
   const cookies = document.cookie.split(';');
-  const authCookie = cookies.find(cookie => 
-    cookie.trim().startsWith('admin-auth=')
+  const tokenCookie = cookies.find(cookie => 
+    cookie.trim().startsWith('token=')
   );
   
-  return authCookie?.includes('admin-auth=true') || false;
+  // Return true if the token cookie exists and is not empty
+  return !!tokenCookie;
 }
 
+// No other changes needed here.
+
+// The rest of the file can remain the same
 export function redirectToLogin(): void {
   if (typeof window !== 'undefined') {
     window.location.href = '/login';
