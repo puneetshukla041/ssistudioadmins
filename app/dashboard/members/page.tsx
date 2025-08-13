@@ -1,3 +1,4 @@
+// app/dashboard/members/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -5,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   FiUsers,
   FiLogOut,
-
   FiEdit3,
   FiTrash2,
   FiSave,
@@ -23,8 +23,8 @@ import {
   FiLoader, // For loading spinner
   FiClock, // For timestamps
 } from "react-icons/fi";
-import AuthBg from "@/components/Authbg"; // Fixed import path to match actual component
-import AuthGuard from "@/components/AuthGuard";
+import AuthBg from "@/components/Authbg";
+import { isAuthenticated } from "@/lib/auth"; // Import isAuthenticated
 
 interface Member {
   _id: string;
@@ -32,7 +32,7 @@ interface Member {
   // In a real application, NEVER store or display raw passwords.
   // This is purely for demonstration of form functionality.
   // Passwords should be hashed on the backend and never sent to the frontend.
-  password: string; 
+  password: string;
   createdAt?: string; // Optional: Added timestamp for creation
   updatedAt?: string; // Optional: Added timestamp for last update
 }
@@ -48,14 +48,15 @@ export default function MembersPage() {
   const [notification, setNotification] = useState<{
     message: string;
     type: NotificationType;
-    active: boolean; 
+    active: boolean;
   } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isApiLoading, setIsApiLoading] = useState(false); // Global loading for API calls
+  const [isPageLoading, setIsPageLoading] = useState(true); // New state for initial page load
 
   const showNotification = useCallback((message: string, type: NotificationType) => {
-    setNotification({ message, type, active: true }); 
+    setNotification({ message, type, active: true });
     setTimeout(() => {
       setNotification(prev => prev ? { ...prev, active: false } : null);
     }, 3000); // Duration before starting to close
@@ -69,10 +70,11 @@ export default function MembersPage() {
     try {
       const res = await fetch("/api/members");
       if (!res.ok) {
+        // If unauthorized or forbidden, redirect to login
         if (res.status === 401 || res.status === 403) {
           router.push("/login");
           showNotification("Session expired or unauthorized. Please log in.", "error");
-          return;
+          return; // Stop execution to prevent further rendering/errors
         }
         throw new Error(`HTTP error: ${res.status}`);
       }
@@ -86,9 +88,21 @@ export default function MembersPage() {
     }
   }, [router, showNotification]); // Dependencies for useCallback
 
+  // Initial authentication check on page load
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]); // Dependency for useEffect
+    const checkAuthenticationAndLoad = async () => {
+      const authed = await isAuthenticated(); // Check if authenticated
+      if (!authed) {
+        router.push('/login'); // Redirect to login if not authenticated
+        showNotification("You need to log in to access this page.", "error");
+      } else {
+        await fetchMembers(); // Only fetch members if authenticated
+      }
+      setIsPageLoading(false); // Stop page loading animation
+    };
+
+    checkAuthenticationAndLoad();
+  }, [router, fetchMembers, showNotification]); // Dependencies for useEffect
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +115,7 @@ export default function MembersPage() {
     }
 
     // New: Duplicate username validation (client-side check for immediate feedback)
-    const isDuplicate = members.some(m => 
+    const isDuplicate = members.some(m =>
       m.username.toLowerCase() === username.toLowerCase() && m._id !== editingId
     );
     if (isDuplicate) {
@@ -182,7 +196,7 @@ export default function MembersPage() {
   const handleClearForm = () => {
     setUsername("");
     setPassword("");
-    setEditingId(null); 
+    setEditingId(null);
     showNotification("Form cleared.", "info");
   };
 
@@ -211,29 +225,44 @@ export default function MembersPage() {
   }, [members, searchTerm]);
 
   // Helper to format dates
-// Helper to format dates to show both date and time
-const formatDate = (dateString?: string) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  // Use toLocaleString with specific options for consistent date and time display
-  return date.toLocaleString('en-IN', { // 'en-IN' for Indian English locale (date/time format)
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true, // Use 12-hour format with AM/PM
-  });
-};
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    // Use toLocaleString with specific options for consistent date and time display
+    return date.toLocaleString('en-IN', { // 'en-IN' for Indian English locale (date/time format)
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true, // Use 12-hour format with AM/PM
+    });
+  };
 
-  return (
-    <AuthGuard>
-      <div className="relative min-h-screen font-sans antialiased p-4 sm:p-6 lg:p-8 overflow-hidden bg-black md:bg-transparent">
-        {/* AuthBackground for desktop and tablet views */}
-        <div className="hidden md:block absolute inset-0 z-0">
-          <AuthBg />
+  // Display a loading spinner until authentication check is complete
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="text-center text-white">
+          <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm">Loading dashboard...</p>
         </div>
+      </div>
+    );
+  }
+
+  // If page loading is complete and the user is not authenticated,
+  // the useEffect will have already initiated the redirect.
+  // We simply return null here to avoid rendering content momentarily.
+  // The user will be redirected to the login page.
+  // No need for a separate `if (!isAuthenticated)` block here, as `isPageLoading` handles the initial check.
+  return (
+    <div className="relative min-h-screen font-sans antialiased p-4 sm:p-6 lg:p-8 overflow-hidden bg-black md:bg-transparent">
+      {/* AuthBackground for desktop and tablet views */}
+      <div className="hidden md:block absolute inset-0 z-0">
+        <AuthBg />
+      </div>
 
       {/* Global Loading Overlay */}
       {isApiLoading && (
@@ -252,8 +281,8 @@ const formatDate = (dateString?: string) => {
           <div
             className={`
               fixed top-4 left-1/2 -translate-x-1/2 z-50
-              w-max min-w-[36px] max-w-[calc(100vw-32px)] md:max-w-[320px] 
-              h-10 px-4 py-2 
+              w-max min-w-[36px] max-w-[calc(100vw-32px)] md:max-w-[320px]
+              h-10 px-4 py-2
               rounded-full shadow-2xl
               flex items-center gap-2
               backdrop-filter backdrop-blur-lg
@@ -272,7 +301,7 @@ const formatDate = (dateString?: string) => {
               {notification.type === "error" && <FiAlertCircle />}
             </div>
             <span
-              className={`flex-grow text-center truncate 
+              className={`flex-grow text-center truncate
                 ${notification.type === "success" ? "text-green-300" : ""}
                 ${notification.type === "info" ? "text-blue-300" : ""}
                 ${notification.type === "error" ? "text-red-300" : ""}
@@ -284,7 +313,7 @@ const formatDate = (dateString?: string) => {
             <div className="relative flex-shrink-0">
               <FiBell className="text-xl text-subtle-text" />
               {notification.type === "success" && (
-                <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-white/50"></span> 
+                <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-green-500 ring-1 ring-white/50"></span>
               )}
             </div>
           </div>
@@ -401,7 +430,7 @@ const formatDate = (dateString?: string) => {
                   <FiXCircle className="text-lg" /> Cancel
                 </button>
               )}
-               <button
+                <button
                 type="button"
                 onClick={handleClearForm}
                 className="flex-shrink-0 flex items-center justify-center gap-2 bg-gray-700/40 border border-gray-600/50 text-gray-300 p-3 rounded-lg shadow-md hover:shadow-lg hover:bg-gray-700/50 transition-all duration-300 ease-in-out transform hover:scale-105"
@@ -435,7 +464,7 @@ const formatDate = (dateString?: string) => {
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle-text" />
             </div>
           </div>
-          
+
           <div className="overflow-x-auto"> {/* Added for responsive table scroll */}
             <table className="min-w-full divide-y divide-white/10">
               <thead className="bg-white/10">
@@ -521,7 +550,6 @@ const formatDate = (dateString?: string) => {
           </div> {/* End of overflow-x-auto */}
         </div>
       </div>
-      </div>
-    </AuthGuard>
+    </div>
   );
 }

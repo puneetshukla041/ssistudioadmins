@@ -1,25 +1,29 @@
+// app/login/page.tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import AuthBg from "@/components/Authbg"; // Assuming AuthBg.tsx is in components folder
-import { isAuthenticated } from "@/lib/auth";
+import AuthBg from "@/components/Authbg";
+import { isAuthenticated } from "@/lib/auth"; // Import isAuthenticated
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // Controls "Verifying credentials..."
-  const [showWelcome, setShowWelcome] = useState(false); // Controls "Welcome, [username]"
+  const [isLoading, setIsLoading] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   // Check if already authenticated and redirect
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.push('/dashboard/members');
-    }
+    const checkAuthStatus = async () => {
+      const authed = await isAuthenticated();
+      if (authed) {
+        router.push('/dashboard/members');
+      }
+    };
+    checkAuthStatus();
   }, [router]);
 
-  // Helper function to capitalize the first letter of a string
   const capitalize = (s: string) => {
     if (typeof s !== 'string') return ''
     return s.charAt(0).toUpperCase() + s.slice(1)
@@ -27,10 +31,9 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
-    setIsLoading(true); // Start loading animation
+    setError("");
+    setIsLoading(true);
 
-    // 💡 CRITICAL CHANGE: Back to direct fetch to your custom login API
     const res = await fetch("/api/admin-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -39,27 +42,25 @@ export default function LoginPage() {
 
     if (res.ok) {
       setTimeout(() => {
-        setIsLoading(false); // Hide loading spinner
-        setShowWelcome(true); // Show welcome message
+        setIsLoading(false);
+        setShowWelcome(true);
         setTimeout(() => {
-          router.push("/dashboard/members"); // Redirect after welcome message
-        }, 1500); // Duration for "Welcome" message
-      }, 1500); // Duration for "Verifying credentials..."
+          router.push("/dashboard/members");
+        }, 1500);
+      }, 1500);
     } else {
-      setIsLoading(false); // Stop loading animation on error
-      setShowWelcome(false); // Ensure welcome is not shown
+      setIsLoading(false);
+      setShowWelcome(false);
       setError("Invalid username or password");
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white md:bg-transparent relative">
-      {/* AuthBg for desktop and tablet views */}
       <div className="hidden md:block absolute inset-0">
         <AuthBg />
       </div>
 
-      {/* Loading Animation Overlay */}
       {isLoading && !showWelcome && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
           <div className="text-center animate-scale-in">
@@ -71,7 +72,6 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Welcome Message Overlay */}
       {showWelcome && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
           <div
@@ -83,12 +83,10 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Main Login Form Card */}
       <div className="relative z-10 w-full max-w-sm rounded-xl shadow-lg p-8
                     bg-white md:bg-gray-800/20 md:backdrop-blur-md
                     border border-gray-200 md:border-gray-700/50
                     md:text-gray-100">
-        {/* Title */}
         <h1 className="text-2xl font-semibold text-gray-900 md:text-gray-100 mb-2 text-center">
           SSI Studios Admin
         </h1>
@@ -102,7 +100,6 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 md:text-gray-300">
@@ -144,7 +141,7 @@ export default function LoginPage() {
             type="submit"
             className="w-full bg-black text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors
                         disabled:opacity-50 disabled:cursor-not-allowed
-                        md:bg-gray-800/40 md:border md:border-gray-700/50 md:hover:bg-gray-700/50 md:shadow-inner" 
+                        md:bg-gray-800/40 md:border md:border-gray-700/50 md:hover:bg-gray-700/50 md:shadow-inner"
             disabled={isLoading || showWelcome}
           >
             Login
