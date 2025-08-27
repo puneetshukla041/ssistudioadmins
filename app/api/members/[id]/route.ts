@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
 import { Member, IMember } from "@/models/Employee";
 import dbConnect from "@/lib/dbConnect";
 
-// PUT (Update Member)
 export async function PUT(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // ✅ Correctly type params as a Promise
 ) {
   await dbConnect();
-  const { id } = context.params;
-  const { username, password, access } = await req.json(); // ✅ Added access
+  
+  // Await the params promise before destructuring
+  const { id } = await context.params; 
+  
+  // The rest of your code
+  const { username, password, access } = await req.json();
 
   try {
     const existingMember = await Member.findOne({ username, _id: { $ne: id } });
@@ -22,11 +24,11 @@ export async function PUT(
       );
     }
 
-    const updateData: { username: string; password?: string; access?: object } = { username }; // ✅ Added access to type
+    const updateData: { username: string; password?: string; access?: object } = { username };
     if (password) {
-      updateData.password = password; // ⚠️ Plaintext (for demo only)
+      updateData.password = password;
     }
-    if (access) { // ✅ Added access update
+    if (access) {
       updateData.access = access;
     }
 
@@ -48,7 +50,7 @@ export async function PUT(
         _id: updatedMember._id!.toString(),
         username: updatedMember.username,
         password: updatedMember.password,
-        access: updatedMember.access, // ✅ Return access
+        access: updatedMember.access,
         createdAt: updatedMember.createdAt.toISOString(),
         updatedAt: updatedMember.updatedAt.toISOString(),
       },
@@ -66,10 +68,10 @@ export async function PUT(
 // DELETE (Remove Member)
 export async function DELETE(
   req: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // ✅ Also update the DELETE handler's signature
 ) {
   await dbConnect();
-  const { id } = context.params;
+  const { id } = await context.params;
 
   try {
     const deletedMember: IMember | null = await Member.findByIdAndDelete(id);
