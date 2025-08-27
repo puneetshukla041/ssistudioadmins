@@ -7,12 +7,11 @@ import dbConnect from "@/lib/dbConnect";
 // PUT (Update Member)
 export async function PUT(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   await dbConnect();
-  const { id } = await context.params; // ✅ Must await in App Router
-
-  const { username, password } = await req.json();
+  const { id } = context.params;
+  const { username, password, access } = await req.json(); // ✅ Added access
 
   try {
     const existingMember = await Member.findOne({ username, _id: { $ne: id } });
@@ -23,9 +22,12 @@ export async function PUT(
       );
     }
 
-    const updateData: { username: string; password?: string } = { username };
+    const updateData: { username: string; password?: string; access?: object } = { username }; // ✅ Added access to type
     if (password) {
-      updateData.password = password; // TODO: hash in real app
+      updateData.password = password; // ⚠️ Plaintext (for demo only)
+    }
+    if (access) { // ✅ Added access update
+      updateData.access = access;
     }
 
     const updatedMember: IMember | null = await Member.findByIdAndUpdate(
@@ -41,17 +43,17 @@ export async function PUT(
       );
     }
 
-return NextResponse.json(
-  {
-    _id: updatedMember._id!.toString(),
-    username: updatedMember.username,
-    password: updatedMember.password,   // ✅ return actual password
-    createdAt: updatedMember.createdAt.toISOString(),
-    updatedAt: updatedMember.updatedAt.toISOString(),
-  },
-  { status: 200 }
-);
-
+    return NextResponse.json(
+      {
+        _id: updatedMember._id!.toString(),
+        username: updatedMember.username,
+        password: updatedMember.password,
+        access: updatedMember.access, // ✅ Return access
+        createdAt: updatedMember.createdAt.toISOString(),
+        updatedAt: updatedMember.updatedAt.toISOString(),
+      },
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error("Error updating member:", error);
     return NextResponse.json(
@@ -64,10 +66,10 @@ return NextResponse.json(
 // DELETE (Remove Member)
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   await dbConnect();
-  const { id } = await context.params;
+  const { id } = context.params;
 
   try {
     const deletedMember: IMember | null = await Member.findByIdAndDelete(id);
