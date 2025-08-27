@@ -1,108 +1,108 @@
 // app/dashboard/members/page.tsx
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
-  FiUsers,
-  FiLogOut,
-  FiEdit3,
-  FiTrash2,
-  FiSave,
-  FiXCircle,
-  FiChevronRight,
-  FiCheck,
-  FiInfo,
-  FiAlertCircle,
-  FiBell,
-  FiPlusCircle,
-  FiSearch,
-  FiEye,
-  FiEyeOff,
-  FiRotateCcw,
-  FiLoader, // For loading spinner
-  FiClock, // For timestamps
+  FiUsers,
+  FiLogOut,
+  FiEdit3,
+  FiTrash2,
+  FiSave,
+  FiXCircle,
+  FiChevronRight,
+  FiCheck,
+  FiInfo,
+  FiAlertCircle,
+  FiBell,
+  FiPlusCircle,
+  FiSearch,
+  FiEye,
+  FiEyeOff,
+  FiRotateCcw,
+  FiLoader, // For loading spinner
+  FiClock, // For timestamps
 } from "react-icons/fi";
 import AuthBg from "@/components/Authbg";
 import { isAuthenticated } from "@/lib/auth"; // Import isAuthenticated
 
 interface Member {
-  _id: string;
-  username: string;
-  // In a real application, NEVER store or display raw passwords.
-  // This is purely for demonstration of form functionality.
-  // Passwords should be hashed on the backend and never sent to the frontend.
-  password: string;
-  createdAt?: string; // Optional: Added timestamp for creation
-  updatedAt?: string; // Optional: Added timestamp for last update
+  _id: string;
+  username: string;
+  password: string; // reminder: never store raw passwords in real apps
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 type NotificationType = "success" | "info" | "error";
 
 export default function MembersPage() {
-  const router = useRouter();
-  const [members, setMembers] = useState<Member[]>([]);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: NotificationType;
-    active: boolean;
-  } | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showPassword, setShowPassword] = useState(true); // Changed to 'true' to show password by default
-  const [isApiLoading, setIsApiLoading] = useState(false); // Global loading for API calls
-  const [isPageLoading, setIsPageLoading] = useState(true); // New state for initial page load
+  const router = useRouter();
+  const [members, setMembers] = useState<Member[]>([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: NotificationType;
+    active: boolean;
+  } | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const showNotification = useCallback((message: string, type: NotificationType) => {
-    setNotification({ message, type, active: true });
-    setTimeout(() => {
-      setNotification(prev => prev ? { ...prev, active: false } : null);
-    }, 3000); // Duration before starting to close
-    setTimeout(() => {
-      setNotification(null); // Fully remove after animation
-    }, 3300); // 3000ms + 300ms (exit animation duration)
-  }, []); // Memoize for useCallback dependency
+  // 🔥 FIX: start hidden by default
+  const [showPassword, setShowPassword] = useState(false);
 
-  const fetchMembers = useCallback(async () => {
-    setIsApiLoading(true);
-    try {
-      const res = await fetch("/api/members");
-      if (!res.ok) {
-        // If unauthorized or forbidden, redirect to login
-        if (res.status === 401 || res.status === 403) {
-          router.push("/login");
-          showNotification("Session expired or unauthorized. Please log in.", "error");
-          return; // Stop execution to prevent further rendering/errors
-        }
-        throw new Error(`HTTP error: ${res.status}`);
-      }
-      const data: Member[] = await res.json();
-      setMembers(data);
-    } catch (err) {
-      console.error("Fetch members error:", err);
-      showNotification("Failed to load members. Please try again.", "error");
-    } finally {
-      setIsApiLoading(false);
-    }
-  }, [router, showNotification]); // Dependencies for useCallback
+  const [isApiLoading, setIsApiLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
-  // Initial authentication check on page load
-  useEffect(() => {
-    const checkAuthenticationAndLoad = async () => {
-      const authed = await isAuthenticated(); // Check if authenticated
-      if (!authed) {
-        router.push('/login'); // Redirect to login if not authenticated
-        showNotification("You need to log in to access this page.", "error");
-      } else {
-        await fetchMembers(); // Only fetch members if authenticated
-      }
-      setIsPageLoading(false); // Stop page loading animation
-    };
+  const showNotification = useCallback((message: string, type: NotificationType) => {
+    setNotification({ message, type, active: true });
+    setTimeout(() => {
+      setNotification(prev => prev ? { ...prev, active: false } : null);
+    }, 3000);
+    setTimeout(() => {
+      setNotification(null);
+    }, 3300);
+  }, []);
 
-    checkAuthenticationAndLoad();
-  }, [router, fetchMembers, showNotification]); // Dependencies for useEffect
+  const fetchMembers = useCallback(async () => {
+    setIsApiLoading(true);
+    try {
+      const res = await fetch("/api/members");
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push("/login");
+          showNotification("Session expired or unauthorized. Please log in.", "error");
+          return;
+        }
+        throw new Error(`HTTP error: ${res.status}`);
+      }
+      const data: Member[] = await res.json();
+      setMembers(data);
+    } catch (err) {
+      console.error("Fetch members error:", err);
+      showNotification("Failed to load members. Please try again.", "error");
+    } finally {
+      setIsApiLoading(false);
+    }
+  }, [router, showNotification]);
+
+  useEffect(() => {
+    const checkAuthenticationAndLoad = async () => {
+      const authed = await isAuthenticated();
+      if (!authed) {
+        router.push('/login');
+        showNotification("You need to log in to access this page.", "error");
+      } else {
+        await fetchMembers();
+      }
+      setIsPageLoading(false);
+    };
+    checkAuthenticationAndLoad();
+  }, [router, fetchMembers, showNotification]);
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
