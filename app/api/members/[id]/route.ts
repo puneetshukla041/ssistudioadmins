@@ -41,16 +41,17 @@ export async function PUT(
       );
     }
 
-    return NextResponse.json(
-      {
-        _id: updatedMember._id!.toString(),
-        username: updatedMember.username,
-        password: "********",
-        createdAt: updatedMember.createdAt.toISOString(),
-        updatedAt: updatedMember.updatedAt.toISOString(),
-      },
-      { status: 200 }
-    );
+return NextResponse.json(
+  {
+    _id: updatedMember._id!.toString(),
+    username: updatedMember.username,
+    password: updatedMember.password,   // ✅ return actual password
+    createdAt: updatedMember.createdAt.toISOString(),
+    updatedAt: updatedMember.updatedAt.toISOString(),
+  },
+  { status: 200 }
+);
+
   } catch (error: any) {
     console.error("Error updating member:", error);
     return NextResponse.json(
