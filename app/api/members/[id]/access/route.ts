@@ -1,4 +1,3 @@
-// app/api/members/[id]/access/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { Member, IMember } from "@/models/Employee";
@@ -6,10 +5,12 @@ import dbConnect from "@/lib/dbConnect";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } } // ✅ This is the correct way to type params
+  context: { params: Promise<{ id: string }> } // ✅ Correct type signature
 ) {
   await dbConnect();
-  const { id } = params; // ✅ You can now safely destructure it here.
+
+  const { id } = await context.params; // ✅ Await the params promise
+
   const { field, value } = await req.json();
 
   // Validate the field to ensure it's a valid access key
