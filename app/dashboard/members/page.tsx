@@ -51,7 +51,7 @@ export default function MembersPage() {
     active: boolean;
   } | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showPassword, setShowPassword] = useState(true); // Changed to 'true' to show password by default
+  const [showPassword, setShowPassword] = useState(true);
   const [isApiLoading, setIsApiLoading] = useState(false); // Global loading for API calls
   const [isPageLoading, setIsPageLoading] = useState(true); // New state for initial page load
 
@@ -503,7 +503,6 @@ export default function MembersPage() {
                         {m.username}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-light-text text-base">
-                        {/* The change is here: conditionally display masked or unmasked password */}
                         {showPassword ? m.password : maskPassword(m.password)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-subtle-text text-sm">
@@ -541,7 +540,7 @@ export default function MembersPage() {
                       ) : (
                         "No members registered yet."
                       )}
-                    </td>
+                  </td>
                   </tr>
                 )}
               </tbody>
