@@ -54,6 +54,7 @@ export default function MembersPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isApiLoading, setIsApiLoading] = useState(false); // Global loading for API calls
   const [isPageLoading, setIsPageLoading] = useState(true); // New state for initial page load
+  const [visiblePasswordId, setVisiblePasswordId] = useState<string | null>(null);
 
   const showNotification = useCallback((message: string, type: NotificationType) => {
     setNotification({ message, type, active: true });
@@ -87,6 +88,11 @@ export default function MembersPage() {
       setIsApiLoading(false);
     }
   }, [router, showNotification]); // Dependencies for useCallback
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswordId(prevId => (prevId === id ? null : id));
+  };
+
 
   // Initial authentication check on page load
   useEffect(() => {
@@ -504,8 +510,20 @@ export default function MembersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-light-text text-base">
                         {m.username}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-light-text text-base">
-                        {m.password} {/* Reminder: Do not display actual passwords in real apps */}
+                      <td className="px-6 py-4 whitespace-nowrap text-light-text text-base relative">
+                        <div className="flex items-center gap-2">
+                            <span>
+                                {visiblePasswordId === m._id ? m.password : "********"}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => togglePasswordVisibility(m._id)}
+                                className="p-1 rounded-full text-subtle-text hover:text-light-text transition-colors duration-200"
+                                disabled={isApiLoading}
+                            >
+                                {visiblePasswordId === m._id ? <FiEyeOff /> : <FiEye />}
+                            </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-subtle-text text-sm">
                         {formatDate(m.createdAt)}
