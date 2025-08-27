@@ -1,4 +1,3 @@
-// app/dashboard/members/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -33,6 +32,11 @@ interface Member {
   // This is purely for demonstration of form functionality.
   // Passwords should be hashed on the backend and never sent to the frontend.
   password: string;
+  access?: { // ✅ Made access optional to prevent TypeErrors
+    posterEditor: boolean;
+    certificateEditor: boolean;
+    visitingCard: boolean;
+  };
   createdAt?: string; // Optional: Added timestamp for creation
   updatedAt?: string; // Optional: Added timestamp for last update
 }
@@ -55,6 +59,11 @@ export default function MembersPage() {
   const [isApiLoading, setIsApiLoading] = useState(false); // Global loading for API calls
   const [isPageLoading, setIsPageLoading] = useState(true); // New state for initial page load
   const [visiblePasswordId, setVisiblePasswordId] = useState<string | null>(null);
+  const [accessToggles, setAccessToggles] = useState({
+    posterEditor: false,
+    certificateEditor: false,
+    visitingCard: false,
+  });
 
   const showNotification = useCallback((message: string, type: NotificationType) => {
     setNotification({ message, type, active: true });
@@ -71,11 +80,10 @@ export default function MembersPage() {
     try {
       const res = await fetch("/api/members");
       if (!res.ok) {
-        // If unauthorized or forbidden, redirect to login
         if (res.status === 401 || res.status === 403) {
           router.push("/login");
           showNotification("Session expired or unauthorized. Please log in.", "error");
-          return; // Stop execution to prevent further rendering/errors
+          return;
         }
         throw new Error(`HTTP error: ${res.status}`);
       }
@@ -87,28 +95,64 @@ export default function MembersPage() {
     } finally {
       setIsApiLoading(false);
     }
-  }, [router, showNotification]); // Dependencies for useCallback
+  }, [router, showNotification]);
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswordId(prevId => (prevId === id ? null : id));
   };
+  
+  const handleAccessToggle = useCallback(async (memberId: string, field: keyof NonNullable<Member['access']>, value: boolean) => {
+    setIsApiLoading(true);
+    try {
+        const res = await fetch(`/api/members/${memberId}/access`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ field, value }),
+        });
+        if (!res.ok) throw new Error("Failed to update access.");
+        
+        setMembers(prevMembers =>
+            prevMembers.map(m => {
+                if (m._id === memberId) {
+                    const currentAccess = m.access || {
+                        posterEditor: false,
+                        certificateEditor: false,
+                        visitingCard: false,
+                    };
+                    return {
+                        ...m,
+                        access: {
+                            ...currentAccess,
+                            [field]: value,
+                        },
+                    };
+                }
+                return m;
+            })
+        );
+        showNotification("Access updated successfully!", "success");
+    } catch (err) {
+        console.error("Access update error:", err);
+        showNotification("Failed to update access. Please try again.", "error");
+    } finally {
+        setIsApiLoading(false);
+    }
+  }, [showNotification]);
 
-
-  // Initial authentication check on page load
   useEffect(() => {
     const checkAuthenticationAndLoad = async () => {
-      const authed = await isAuthenticated(); // Check if authenticated
+      const authed = await isAuthenticated();
       if (!authed) {
-        router.push('/login'); // Redirect to login if not authenticated
+        router.push('/login');
         showNotification("You need to log in to access this page.", "error");
       } else {
-        await fetchMembers(); // Only fetch members if authenticated
+        await fetchMembers();
       }
-      setIsPageLoading(false); // Stop page loading animation
+      setIsPageLoading(false);
     };
 
     checkAuthenticationAndLoad();
-  }, [router, fetchMembers, showNotification]); // Dependencies for useEffect
+  }, [router, fetchMembers, showNotification]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +164,6 @@ export default function MembersPage() {
       return;
     }
 
-    // New: Duplicate username validation (client-side check for immediate feedback)
     const isDuplicate = members.some(m =>
       m.username.toLowerCase() === username.toLowerCase() && m._id !== editingId
     );
@@ -132,11 +175,13 @@ export default function MembersPage() {
 
     try {
       let res: Response;
+      const dataToSend = { username, password, access: accessToggles };
+      
       if (editingId) {
         res = await fetch(`/api/members/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify(dataToSend),
         });
         if (!res.ok) throw new Error("Failed to update");
         showNotification("Member updated successfully!", "success");
@@ -144,13 +189,11 @@ export default function MembersPage() {
         res = await fetch("/api/members", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // In a real app, send ONLY the plaintext password for hashing on backend.
-          // Or, better, hash on client-side before sending (e.g., with bcrypt.js) then send hash.
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify(dataToSend),
         });
         if (!res.ok) {
           const errorData = await res.json();
-          if (res.status === 409) { // Conflict status code for duplicate
+          if (res.status === 409) {
             throw new Error(errorData.error || "Duplicate username.");
           }
           throw new Error("Failed to add member.");
@@ -160,7 +203,8 @@ export default function MembersPage() {
       setUsername("");
       setPassword("");
       setEditingId(null);
-      await fetchMembers(); // Refresh list after successful operation
+      setAccessToggles({ posterEditor: false, certificateEditor: false, visitingCard: false });
+      await fetchMembers();
     } catch (err: any) {
       console.error("Save member error:", err);
       showNotification(err.message || "Failed to save member. Please try again.", "error");
@@ -188,7 +232,8 @@ export default function MembersPage() {
   const handleEdit = (member: Member) => {
     setEditingId(member._id);
     setUsername(member.username);
-    setPassword(member.password); // Again, in a real app, avoid pre-filling passwords.
+    setPassword(member.password);
+    setAccessToggles(member.access || { posterEditor: false, certificateEditor: false, visitingCard: false }); // Added a fallback
     showNotification(`Editing "${member.username}"...`, "info");
   };
 
@@ -196,6 +241,7 @@ export default function MembersPage() {
     setEditingId(null);
     setUsername("");
     setPassword("");
+    setAccessToggles({ posterEditor: false, certificateEditor: false, visitingCard: false });
     showNotification("Edit cancelled.", "info");
   };
 
@@ -203,6 +249,7 @@ export default function MembersPage() {
     setUsername("");
     setPassword("");
     setEditingId(null);
+    setAccessToggles({ posterEditor: false, certificateEditor: false, visitingCard: false });
     showNotification("Form cleared.", "info");
   };
 
@@ -230,23 +277,20 @@ export default function MembersPage() {
     );
   }, [members, searchTerm]);
 
-  // Helper to format dates
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
-    // Use toLocaleString with specific options for consistent date and time display
-    return date.toLocaleString('en-IN', { // 'en-IN' for Indian English locale (date/time format)
+    return date.toLocaleString('en-IN', {
       year: 'numeric',
       month: 'numeric',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: true, // Use 12-hour format with AM/PM
+      hour12: true,
     });
   };
 
-  // Display a loading spinner until authentication check is complete
   if (isPageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -258,11 +302,6 @@ export default function MembersPage() {
     );
   }
 
-  // If page loading is complete and the user is not authenticated,
-  // the useEffect will have already initiated the redirect.
-  // We simply return null here to avoid rendering content momentarily.
-  // The user will be redirected to the login page.
-  // No need for a separate `if (!isAuthenticated)` block here, as `isPageLoading` handles the initial check.
   return (
     <div className="relative min-h-screen font-sans antialiased p-4 sm:p-6 lg:p-8 overflow-hidden bg-black md:bg-transparent">
       {/* AuthBackground for desktop and tablet views */}
@@ -281,7 +320,7 @@ export default function MembersPage() {
       )}
 
       {/* Main wrapper for content */}
-      <div className="relative z-10 min-h-screen text-light-text mx-auto max-w-7xl">
+      <div className="relative z-10 min-h-screen text-light-text w-full">
         {/* Dynamic Island style Notification */}
         {notification && (
           <div
@@ -326,7 +365,7 @@ export default function MembersPage() {
         )}
 
         {/* Top bar - Modernized with gradients and subtle effects */}
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 sm:mb-12 pb-6 border-b border-white/10">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 sm:mb-12 pb-6 border-b border-white/10 mx-auto max-w-7xl">
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight flex flex-col sm:flex-row items-center gap-2 mb-4 sm:mb-0 text-center sm:text-left text-transparent bg-clip-text bg-gradient-to-r from-accent-blue to-accent-purple font-bebas-neue">
             <FiUsers className="text-3xl sm:text-4xl text-accent-blue" /> SSI Studios
             <span className="text-subtle-text text-lg sm:text-xl font-normal flex items-center gap-1 mt-1 sm:mt-0 sm:ml-3">
@@ -346,7 +385,7 @@ export default function MembersPage() {
         <div className="
           bg-dark-card backdrop-blur-lg border border-dark-border
           rounded-2xl p-6 sm:p-8 lg:p-10 shadow-2xl
-          max-w-full lg:max-w-5xl mx-auto mb-10 sm:mb-14
+          max-w-full lg:max-w-7xl mx-auto mb-10 sm:mb-14
           transform hover:scale-[1.005] transition-transform duration-300 ease-out
         ">
           <h2 className="text-2xl sm:text-3xl font-semibold mb-6 sm:mb-8 flex items-center gap-3 border-b border-white/15 pb-4 text-accent-blue">
@@ -451,7 +490,7 @@ export default function MembersPage() {
         {/* Members table - Frosted glass effect, subtle borders, improved hover */}
         <div className="overflow-hidden bg-dark-card backdrop-blur-lg border border-dark-border
           rounded-2xl shadow-2xl
-          max-w-full lg:max-w-5xl mx-auto
+          w-full mx-auto
           transform hover:scale-[1.005] transition-transform duration-300 ease-out
         ">
           <div className="p-6 sm:p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -490,6 +529,9 @@ export default function MembersPage() {
                     <span className="flex items-center gap-1">
                       <FiClock /> Updated At
                     </span>
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-subtle-text uppercase tracking-wider">
+                    Access
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-subtle-text uppercase tracking-wider">
                     Actions
@@ -531,6 +573,49 @@ export default function MembersPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-subtle-text text-sm">
                         {formatDate(m.updatedAt)}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col space-y-2"> {/* Changed to flex-col for better stacking */}
+                          <div className="flex items-center">
+                            <label className="inline-flex items-center cursor-pointer relative">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={m.access?.posterEditor || false}
+                                onChange={() => handleAccessToggle(m._id, 'posterEditor', !(m.access?.posterEditor || false))}
+                                disabled={isApiLoading}
+                              />
+                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                            <span className="ml-3 text-sm font-medium text-gray-300">Poster Editor</span> {/* ✅ Full name */}
+                          </div>
+                          <div className="flex items-center">
+                            <label className="inline-flex items-center cursor-pointer relative">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={m.access?.certificateEditor || false}
+                                onChange={() => handleAccessToggle(m._id, 'certificateEditor', !(m.access?.certificateEditor || false))}
+                                disabled={isApiLoading}
+                              />
+                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                            <span className="ml-3 text-sm font-medium text-gray-300">Certificate Editor</span> {/* ✅ Full name */}
+                          </div>
+                          <div className="flex items-center">
+                            <label className="inline-flex items-center cursor-pointer relative">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={m.access?.visitingCard || false}
+                                onChange={() => handleAccessToggle(m._id, 'visitingCard', !(m.access?.visitingCard || false))}
+                                disabled={isApiLoading}
+                              />
+                              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                            </label>
+                            <span className="ml-3 text-sm font-medium text-gray-300">Visiting Card</span> {/* ✅ Full name */}
+                          </div>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-base space-x-3">
                         <button
                           className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 text-blue-200 px-4 py-2 rounded-lg hover:bg-blue-600/30 hover:text-white shadow-sm transition-all duration-200 ease-in-out transform hover:scale-105"
@@ -552,7 +637,7 @@ export default function MembersPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan={5} // Adjusted colspan to match new columns
+                      colSpan={6} // Adjusted colspan to match new columns
                       className="text-center py-8 text-subtle-text text-base italic"
                     >
                       {members.length > 0 && searchTerm ? (
