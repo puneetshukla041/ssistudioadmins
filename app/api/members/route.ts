@@ -16,7 +16,8 @@ export async function GET() {
     const safeMembers = members.map(m => ({
       _id: m._id!.toString(), // Non-null assertion for _id
       username: m.username,
-      password: '********', // Always mask passwords for the frontend
+      password: m.password, // return actual password (⚠️ unsafe in production)
+
       createdAt: m.createdAt.toISOString(), // Convert Date to ISO string
       updatedAt: m.updatedAt.toISOString(), // Convert Date to ISO string
     }));
