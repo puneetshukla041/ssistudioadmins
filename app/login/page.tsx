@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AuthBg from "@/components/Authbg";
-import { isAuthenticated } from "@/lib/auth"; // Import isAuthenticated
+import { isAuthenticated } from "@/lib/auth";
+import { Eye, EyeOff } from "lucide-react"; // 👈 Import icons
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,22 +13,22 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // 👈 State for toggle
 
-  // Check if already authenticated and redirect
   useEffect(() => {
     const checkAuthStatus = async () => {
       const authed = await isAuthenticated();
       if (authed) {
-        router.push('/dashboard/members');
+        router.push("/dashboard/members");
       }
     };
     checkAuthStatus();
   }, [router]);
 
   const capitalize = (s: string) => {
-    if (typeof s !== 'string') return ''
-    return s.charAt(0).toUpperCase() + s.slice(1)
-  }
+    if (typeof s !== "string") return "";
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,17 +77,19 @@ export default function LoginPage() {
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center animate-fade-in">
           <div
             className="text-white text-4xl font-extrabold tracking-wide animate-scale-in"
-            style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.5px' }}
+            style={{ fontFamily: "Inter, sans-serif", letterSpacing: "0.5px" }}
           >
             Welcome, <span className="text-blue-300">{capitalize(username)}</span>
           </div>
         </div>
       )}
 
-      <div className="relative z-10 w-full max-w-sm rounded-xl shadow-lg p-8
+      <div
+        className="relative z-10 w-full max-w-sm rounded-xl shadow-lg p-8
                     bg-white md:bg-gray-800/20 md:backdrop-blur-md
                     border border-gray-200 md:border-gray-700/50
-                    md:text-gray-100">
+                    md:text-gray-100"
+      >
         <h1 className="text-2xl font-semibold text-gray-900 md:text-gray-100 mb-2 text-center">
           SSI Studios Admin
         </h1>
@@ -123,18 +126,28 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-gray-700 md:text-gray-300">
               Password
             </label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2
-                          text-gray-900 md:text-white
-                          focus:outline-none focus:ring-2 focus:ring-black md:focus:ring-blue-300
-                          bg-white md:bg-gray-900/30 md:border-gray-700/50"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              disabled={isLoading || showWelcome}
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"} // 👈 toggle type
+                autoComplete="current-password"
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2
+                            text-gray-900 md:text-white
+                            focus:outline-none focus:ring-2 focus:ring-black md:focus:ring-blue-300
+                            bg-white md:bg-gray-900/30 md:border-gray-700/50 pr-10"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                disabled={isLoading || showWelcome}
+              />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-3 flex items-center text-gray-500 md:text-gray-300 hover:text-gray-700 md:hover:text-white"
+                onClick={() => setShowPassword((prev) => !prev)}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button
