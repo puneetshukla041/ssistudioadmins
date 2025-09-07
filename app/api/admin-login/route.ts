@@ -9,6 +9,7 @@ const allowedUsers: Record<string, string> = {
   varsha: "varsha@ssi",
   shrijal: "shrijal@ssi",
   yash: "yash@ssi",
+naveen:"naveen@ssi",
   tanmay: "tanmay@ssi",
 };
 
